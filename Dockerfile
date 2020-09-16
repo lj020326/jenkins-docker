@@ -30,12 +30,14 @@ RUN apt-get update && \
       $(lsb_release -cs) \
       stable" && \
    apt-get update && \
-   apt-get -y --no-install-recommends install docker-ce python3-pip && \
+   apt-get -y --no-install-recommends install docker-ce python3-dev python3-venv python3-wheel python3-setuptools python3-pip && \
    apt-get clean && \
    usermod -aG docker jenkins
 
 # Install docker compose
 ## ref: https://github.com/tiangolo/docker-with-compose/blob/master/Dockerfile
+## ref: https://stackoverflow.com/questions/34819221/why-is-python-setup-py-saying-invalid-command-bdist-wheel-on-travis-ci
+RUN pip3 install wheel
 RUN pip3 install docker-compose ansible
 
 # drop back to the regular jenkins user - good practice
