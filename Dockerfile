@@ -11,14 +11,13 @@ ARG http_port=8080
 ARG agent_port=50000
 ARG JENKINS_HOME=/var/jenkins_home
 
-USER root
-
 ## ref: https://stackoverflow.com/questions/59025426/docker-container-how-to-set-gid-of-socket-file-to-groupid-130
-
 # Used to set the docker group ID
 # Set to 497 by default, which is the groupID used by AWS Linux ECS instance
 #ARG DOCKER_GID=497
 ARG DOCKER_GID=991
+
+USER root
 
 # Create Docker Group with GID
 # Set default value of 497 if DOCKER_GID set to blank string by Docker compose
