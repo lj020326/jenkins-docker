@@ -1,7 +1,15 @@
 FROM jenkins/jenkins:lts
-MAINTAINER 4oh4
 
 # Derived from https://github.com/getintodevops/jenkins-withdocker (miiro@getintodevops.com)
+
+## ref: https://github.com/jenkinsci/docker/blob/master/Dockerfile
+ARG user=jenkins
+ARG group=jenkins
+ARG uid=1000
+ARG gid=1000
+ARG http_port=8080
+ARG agent_port=50000
+ARG JENKINS_HOME=/var/jenkins_home
 
 USER root
 
@@ -30,15 +38,15 @@ RUN apt-get update && \
       $(lsb_release -cs) \
       stable" && \
    apt-get update && \
-   apt-get -y --no-install-recommends install docker-ce python3-dev python3-venv python3-wheel python3-setuptools python3-pip && \
+   apt-get -y --no-install-recommends install docker-ce python3-pip && \
    apt-get clean && \
    usermod -aG docker jenkins
 
 # Install docker compose
 ## ref: https://github.com/tiangolo/docker-with-compose/blob/master/Dockerfile
 ## ref: https://stackoverflow.com/questions/34819221/why-is-python-setup-py-saying-invalid-command-bdist-wheel-on-travis-ci
-RUN pip3 install wheel
-RUN pip3 install docker-compose ansible
+RUN pip3 install --upgrade pip wheel setuptools && \
+ pip3 install -U docker-compose ansible
 
 # drop back to the regular jenkins user - good practice
 #USER jenkins
