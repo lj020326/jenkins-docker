@@ -30,7 +30,7 @@ RUN apt-get update && \
       $(lsb_release -cs) \
       stable" && \
    apt-get update && \
-   apt-get -y --no-install-recommends install docker-ce && \
+   apt-get -y --no-install-recommends install docker-ce python3-pip && \
    apt-get clean && \
    usermod -aG docker jenkins
 
