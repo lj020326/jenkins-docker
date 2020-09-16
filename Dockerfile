@@ -5,6 +5,18 @@ MAINTAINER 4oh4
 
 USER root
 
+## ref: https://stackoverflow.com/questions/59025426/docker-container-how-to-set-gid-of-socket-file-to-groupid-130
+
+# Used to set the docker group ID
+# Set to 497 by default, which is the groupID used by AWS Linux ECS instance
+#ARG DOCKER_GID=497
+ARG DOCKER_GID=991
+
+# Create Docker Group with GID
+# Set default value of 497 if DOCKER_GID set to blank string by Docker compose
+#RUN groupadd -g ${DOCKER_GID:-497} docker
+RUN groupadd -g ${DOCKER_GID:-991} docker
+
 # Install the latest Docker CE binaries and add user `jenkins` to the docker group
 RUN apt-get update && \
     apt-get -y --no-install-recommends install apt-transport-https \
@@ -22,5 +34,15 @@ RUN apt-get update && \
    apt-get clean && \
    usermod -aG docker jenkins
 
+# Install docker compose
+## ref: https://github.com/tiangolo/docker-with-compose/blob/master/Dockerfile
+RUN pip3 install docker-compose ansible
+
 # drop back to the regular jenkins user - good practice
-USER jenkins
+#USER jenkins
+USER ${user}
+
+## Add jenkins plugin
+#COPY plugins.txt /usr/share/jenkins/plugins.txt
+#RUN /usr/local/bin/install-plugins.sh < /usr/share/jenkins/plugins.txt
+
