@@ -177,7 +177,7 @@ RUN pip3 install --upgrade pip wheel setuptools && \
 #    https://github.com/matt-l-welch/docker-govc/blob/master/Dockerfile
 #    https://www.msystechnologies.com/blog/learn-how-to-install-configure-and-test-govc/
 #==========
-RUN curl -L $(curl -s https://api.github.com/repos/vmware/govmomi/releases/latest | \
+RUN curl -fsSL $(curl -s https://api.github.com/repos/vmware/govmomi/releases/latest | \
     grep browser_download_url | grep govc_linux_amd64 | cut -d '"' -f 4) | \
     gunzip > /usr/local/bin/govc && \
     chmod +x /usr/local/bin/govc
