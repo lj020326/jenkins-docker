@@ -36,16 +36,40 @@ RUN apt-get update && \
       "deb [arch=amd64] https://download.docker.com/linux/$(. /etc/os-release; echo "$ID") \
       $(lsb_release -cs) \
       stable" && \
-   apt-get update && \
-   apt-get -y --no-install-recommends install docker-ce python3-pip && \
-   apt-get clean && \
-   usermod -aG docker jenkins
+    apt-get update && \
+    apt-get -y --no-install-recommends install docker-ce && \
+    apt-get clean && \
+    usermod -aG docker jenkins
 
-# Install docker compose
-## ref: https://github.com/tiangolo/docker-with-compose/blob/master/Dockerfile
-## ref: https://stackoverflow.com/questions/34819221/why-is-python-setup-py-saying-invalid-command-bdist-wheel-on-travis-ci
+#==========
+# PYTHON3.8
+#==========
+RUN add-apt-repository ppa:deadsnakes/ppa && \
+    apt-get update && \
+    apt-get install -y python3.8 && \
+    apt-get install -y python3-distutils python3-setuptools && \
+    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python3.8 get-pip.py
+
+#==========
+# PIP, DOCKER COMPOSE, ANSIBLE
+# refs:
+#    https://github.com/tiangolo/docker-with-compose/blob/master/Dockerfile
+#    https://stackoverflow.com/questions/34819221/why-is-python-setup-py-saying-invalid-command-bdist-wheel-on-travis-ci
+#==========
 RUN pip3 install --upgrade pip wheel setuptools && \
- pip3 install -U docker-compose ansible
+    pip3 install -U docker-compose ansible
+
+#==========
+# VMWARE GOVC CLI
+# refs:
+#    https://github.com/matt-l-welch/docker-govc/blob/master/Dockerfile
+#    https://www.msystechnologies.com/blog/learn-how-to-install-configure-and-test-govc/
+#==========
+RUN curl -L $(curl -s https://api.github.com/repos/vmware/govmomi/releases/latest | \
+    grep browser_download_url | grep govc_linux_amd64 | cut -d '"' -f 4) | \
+    gunzip > /usr/local/bin/govc && \
+    chmod +x /usr/local/bin/govc
 
 # drop back to the regular jenkins user - good practice
 #USER jenkins
