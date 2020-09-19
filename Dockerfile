@@ -54,7 +54,9 @@ ENV PATH /usr/local/bin:$PATH
 ENV LANG C.UTF-8
 
 # extra dependencies (over what buildpack-deps already includes)
+## ref: https://linuxize.com/post/how-to-install-python-3-8-on-debian-10/
 RUN apt-get install -y --no-install-recommends \
+        build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libsqlite3-dev libreadline-dev libffi-dev curl libbz2-dev \
 		libbluetooth-dev \
 		tk-dev \
 		uuid-dev \
@@ -64,8 +66,7 @@ ENV PYTHON_VERSION 3.8.2
 
 RUN set -ex \
 	\
-	&& wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
-	&& { command -v gpgconf > /dev/null && gpgconf --kill all || :; } \
+	&& wget -nv -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
 	&& mkdir -p /usr/src/python \
 	&& tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
 	&& rm python.tar.xz \
