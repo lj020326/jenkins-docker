@@ -43,13 +43,124 @@ RUN apt-get update && \
 
 #==========
 # PYTHON3.8
+# ref: https://github.com/docker-library/python/blob/master/Dockerfile-debian.template
 #==========
-RUN add-apt-repository ppa:deadsnakes/ppa && \
-    apt-get update && \
-    apt-get install -y python3.8 && \
-    apt-get install -y python3-distutils python3-setuptools && \
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
-    python3.8 get-pip.py
+
+# ensure local python is preferred over distribution python
+ENV PATH /usr/local/bin:$PATH
+
+# http://bugs.python.org/issue19846
+# > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
+ENV LANG C.UTF-8
+
+# extra dependencies (over what buildpack-deps already includes)
+RUN apt-get install -y --no-install-recommends \
+		libbluetooth-dev \
+		tk-dev \
+		uuid-dev \
+	&& rm -rf /var/lib/apt/lists/*
+
+ENV PYTHON_VERSION 3.8.2
+
+RUN set -ex \
+	\
+	&& wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
+	&& { command -v gpgconf > /dev/null && gpgconf --kill all || :; } \
+	&& mkdir -p /usr/src/python \
+	&& tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
+	&& rm python.tar.xz \
+	\
+	&& cd /usr/src/python \
+	&& gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+	&& ./configure \
+		--build="$gnuArch" \
+		--enable-loadable-sqlite-extensions \
+		--enable-optimizations \
+		--enable-option-checking=fatal \
+		--enable-shared \
+		--with-system-expat \
+		--with-system-ffi \
+		--without-ensurepip \
+	&& make -j "$(nproc)" \
+# setting PROFILE_TASK makes "--enable-optimizations" reasonable: https://bugs.python.org/issue36044 / https://github.com/docker-library/python/issues/160#issuecomment-509426916
+		PROFILE_TASK='-m test.regrtest --pgo \
+			test_array \
+			test_base64 \
+			test_binascii \
+			test_binhex \
+			test_binop \
+			test_bytes \
+			test_c_locale_coercion \
+			test_class \
+			test_cmath \
+			test_codecs \
+			test_compile \
+			test_complex \
+			test_csv \
+			test_decimal \
+			test_dict \
+			test_float \
+			test_fstring \
+			test_hashlib \
+			test_io \
+			test_iter \
+			test_json \
+			test_long \
+			test_math \
+			test_memoryview \
+			test_pickle \
+			test_re \
+			test_set \
+			test_slice \
+			test_struct \
+			test_threading \
+			test_time \
+			test_traceback \
+			test_unicode \
+		' \
+	&& make install \
+	&& rm -rf /usr/src/python \
+	\
+	&& find /usr/local -depth \
+		\( \
+			\( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+			-o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name '*.a' \) \) \
+			-o \( -type f -a -name 'wininst-*.exe' \) \
+		\) -exec rm -rf '{}' + \
+	\
+	&& ldconfig \
+	\
+	&& python3 --version
+
+# make some useful symlinks that are expected to exist
+RUN cd /usr/local/bin \
+	&& ln -s idle3 idle \
+	&& ln -s pydoc3 pydoc \
+	&& ln -s python3 python \
+	&& ln -s python3-config python-config
+
+# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
+# https://github.com/pypa/get-pip
+ENV PYTHON_GET_PIP_URL https://bootstrap.pypa.io/get-pip.py
+
+RUN set -ex; \
+	\
+	wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
+	echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum --check --strict -; \
+	\
+	python get-pip.py \
+		--disable-pip-version-check \
+		--no-cache-dir \
+	; \
+	pip --version; \
+	\
+	find /usr/local -depth \
+		\( \
+			\( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+			-o \
+			\( -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) \
+		\) -exec rm -rf '{}' +; \
+	rm -f get-pip.py
 
 #==========
 # PIP, DOCKER COMPOSE, ANSIBLE
