@@ -146,8 +146,7 @@ ENV PYTHON_GET_PIP_URL https://bootstrap.pypa.io/get-pip.py
 
 RUN set -ex; \
 	\
-	wget -O get-pip.py "$PYTHON_GET_PIP_URL"; \
-	echo "$PYTHON_GET_PIP_SHA256 *get-pip.py" | sha256sum --check --strict -; \
+	wget -nv -O get-pip.py "$PYTHON_GET_PIP_URL"; \
 	\
 	python get-pip.py \
 		--disable-pip-version-check \
