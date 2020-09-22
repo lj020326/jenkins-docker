@@ -27,9 +27,25 @@ RUN groupadd -g ${DOCKER_GID:-991} docker
 # Install the latest Docker CE binaries and add user `jenkins` to the docker group
 RUN apt-get update && \
     apt-get -y --no-install-recommends install apt-transport-https \
-      ca-certificates \
-      curl \
-      gnupg2 \
+        ca-certificates \
+        iproute2 \
+        apt-transport-https \
+        openssh-client ssh-askpass\
+        ca-certificates \
+        gpg gpg-agent \
+        openjdk-8-jdk \
+        tar zip unzip \
+        wget curl \
+        gnupg2 \
+        git \
+        build-essential \
+        less nano tree \
+        jq \
+        python3 python3-pip \
+        groff \
+        rlwrap \
+        rsync \
+        genisoimage \
       software-properties-common && \
     curl -fsSL https://download.docker.com/linux/$(. /etc/os-release; echo "$ID")/gpg > /tmp/dkey; apt-key add /tmp/dkey && \
     add-apt-repository \
