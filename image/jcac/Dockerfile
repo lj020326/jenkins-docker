@@ -1,0 +1,22 @@
+## ref: https://schneide.blog/2019/10/21/using-parameterized-docker-builds/
+ARG IMAGE_REGISTRY=lj020326
+FROM $IMAGE_REGISTRY/docker-jenkins:latest
+
+LABEL maintainer="Lee Johnson <ljohnson@dettonville.org>"
+LABEL build_date="2024-02-28"
+
+#################################################
+# Inspired by
+# https://github.com/lj020326/pipeline-automation-lib/blob/main/docs/jenkins-config-as-code/jenkins-setup-jcac-docker.md
+#################################################
+
+## ref: https://github.com/lj020326/pipeline-automation-lib/blob/main/docs/jenkins-config-as-code/Dockerfile
+
+# skip the setup wizard
+ENV JAVA_OPTS "-Djenkins.install.runSetupWizard=false"
+#ENV CASC_JENKINS_CONFIG /var/jenkins_home/jenkins_casc.yaml
+
+# install plugins
+COPY plugins.txt /usr/share/jenkins/ref/plugins.txt
+RUN mkdir -p /usr/share/jenkins/ref/plugins && \
+  jenkins-plugin-cli --clean-download-directory --list --view-security-warnings -f /usr/share/jenkins/ref/plugins.txt

@@ -1,0 +1,10 @@
+version: '3'
+services:
+  jenkins:
+    build: .
+    env_file:
+      - jenkins.env
+    volumes:
+      - ./config.yml:/var/jenkins_home/jenkins_casc.yaml
+    ports:
+      - "8080:8080"
