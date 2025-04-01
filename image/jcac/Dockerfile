@@ -4,7 +4,8 @@ ARG BASE_IMAGE_LABEL=lj020326/docker-jenkins:latest
 FROM $IMAGE_REGISTRY/$BASE_IMAGE_LABEL
 
 LABEL maintainer="Lee Johnson <ljohnson@dettonville.org>"
-LABEL build_date="2024-02-28"
+ARG BUILD_ID=devel
+LABEL build=$BUILD_ID
 
 #################################################
 # Inspired by

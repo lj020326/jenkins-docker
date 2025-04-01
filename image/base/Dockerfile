@@ -1,8 +1,12 @@
-FROM jenkins/jenkins:lts
-#FROM jenkins/jenkins:2.407-jdk17
+## ref: https://hub.docker.com/r/jenkins/jenkins
+FROM jenkins/jenkins:lts-jdk21
+#FROM jenkins/jenkins:lts
+#FROM jenkins/jenkins:2.414-jdk21
+#FROM jenkins/jenkins:2.414-jdk17
 
 LABEL maintainer="Lee Johnson <ljohnson@dettonville.org>"
-LABEL build_date="2024-02-28"
+ARG BUILD_ID=devel
+LABEL build=$BUILD_ID
 
 # Derived from
 ## ref: https://github.com/jenkinsci/docker-agent/blob/master/17/bullseye/Dockerfile
@@ -104,7 +108,7 @@ RUN apt-get -qqy --no-install-recommends install \
 
 
 #========================
-# OpenJDK-11
+# OpenJDK-17
 # ref: https://www.digitalocean.com/community/tutorials/how-to-install-java-with-apt-on-ubuntu-20-04
 # ref: https://askubuntu.com/questions/1203898/package-openjdk-11-jdk-has-no-installation-candidate
 #========================
