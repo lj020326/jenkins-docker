@@ -371,12 +371,12 @@ RUN PACKER_VERSION=1.9.0-alpha \
 #RUN wget https://releases.hashicorp.com/packer/1.3.2/packer_1.6.2_linux_amd64.zip
 #RUN unzip packer_1.3.2_linux_amd64.zip -d packer
 
-##==========
-## Chef inspec
-## refs:
-##   https://docs.chef.io/inspec/install/
-##==========
-RUN curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
+###==========
+### Chef inspec
+### refs:
+###   https://docs.chef.io/inspec/install/
+###==========
+#RUN curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
 
 ##====================================
 ## JMETER
