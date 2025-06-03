@@ -24,13 +24,15 @@ ARG agent_port=50000
 ARG JENKINS_HOME=/var/jenkins_home
 #ARG JENKINS_HOME=/home/jenkins
 
-#ARG INTERNAL_IMAGE_BUILD=YES
+ARG INTERNAL_IMAGE_BUILD=NO
+ARG INSTALL_INSPEC=NO
 
 ## ref: https://stackoverflow.com/questions/59025426/docker-container-how-to-set-gid-of-socket-file-to-groupid-130
 # Used to set the docker group ID
 # Set to 497 by default, which is the groupID used by AWS Linux ECS instance
 #ARG DOCKER_GID=497
-ARG DOCKER_GID=991
+#ARG DOCKER_GID=991
+ARG DOCKER_GID=1102
 
 ## ref: https://serverfault.com/questions/618994/when-building-from-dockerfile-debian-ubuntu-package-install-debconf-noninteract
 ENV container=docker
@@ -48,16 +50,15 @@ USER root
 #################################################
 
 # Create Docker Group with GID
-# Set default value of 497 if DOCKER_GID set to blank string by Docker compose
-#RUN groupadd -g ${DOCKER_GID:-497} docker
-RUN groupadd -g ${DOCKER_GID:-991} docker && \
+#RUN groupadd -g ${DOCKER_GID} docker
+RUN groupadd -g ${DOCKER_GID} docker && \
     usermod -aG docker ${user}
 
 ### ref: https://stackoverflow.com/questions/32942023/ubuntu-openjdk-8-unable-to-locate-package
 RUN apt-get update -qqy && \
+    apt-get -qqy install apt-utils && \
     apt-get -qqy --no-install-recommends install \
       apt-transport-https \
-      apt-utils \
       locales \
       ca-certificates \
       software-properties-common
@@ -105,7 +106,6 @@ RUN apt-get -qqy --no-install-recommends install \
 #        default-mysql-client \
 	&& rm -rf /var/lib/apt/lists/* \
     && apt-get clean
-
 
 #========================
 # OpenJDK-17
@@ -273,12 +273,17 @@ RUN apt update && \
 ##   https://www.privex.io/articles/install-idrac-tools-racadm-ubuntu-debian/
 ##   https://www.dell.com/community/Systems-Management-General/SSL-Library-error-and-idracadm7/td-p/4767653
 ##==========
-#ENV IDRAC_TOOLS_URL="https://archiva.admin.dettonville.int/repository/snapshots/org/dettonville/infra/iDRACTools/9.4.0-3733-Debian.15734_amd64/iDRACTools-9.4.0-3733-Debian.15734_amd64.tgz"
-#ENV CURL_INSTALL_IDRAC_TOOLS="curl -kfsSL ${IDRAC_TOOLS_URL} | tar xzf - -C /usr/share=\
-#    && dpkg -i /usr/share/iDRACTools/*.deb \
-#    && ln -s /opt/dell/srvadmin/bin/idracadm7 /usr/local/bin/racadm"
-#RUN if [ "$INTERNAL_IMAGE_BUILD" == "YES" ] ; then eval ${CURL_INSTALL_IDRAC_TOOLS} ; else echo "[INTERNAL_IMAGE_BUILD=${INTERNAL_IMAGE_BUILD}]: Idrac Tools not installed" ; fi
-#
+ENV IDRAC_TOOLS_URL="https://archiva.admin.dettonville.int/repository/snapshots/org/dettonville/infra/iDRACTools/9.4.0-3733-Debian.15734_amd64/iDRACTools-9.4.0-3733-Debian.15734_amd64.tgz"
+ENV CURL_INSTALL_IDRAC_TOOLS="curl -kfsSL ${IDRAC_TOOLS_URL} | tar xzf - -C /usr/share=\
+    && dpkg -i /usr/share/iDRACTools/*.deb \
+    && ln -s /opt/dell/srvadmin/bin/idracadm7 /usr/local/bin/racadm"
+## ref: https://stackoverflow.com/questions/43654656/dockerfile-if-else-condition-with-external-arguments
+RUN if [ "$INTERNAL_IMAGE_BUILD" = "YES" ] ; then \
+      eval ${CURL_INSTALL_IDRAC_TOOLS} ; \
+    else \
+      echo "[INTERNAL_IMAGE_BUILD=${INTERNAL_IMAGE_BUILD}]: Idrac Tools not installed" ; \
+    fi
+
 ##RUN curl -kfsSL https://archiva.admin.dettonville.int/repository/snapshots/org/dettonville/infra/iDRACTools/9.4.0-3733-Debian.15734_amd64/iDRACTools-9.4.0-3733-Debian.15734_amd64.tgz | tar xzf - -C /usr/share \
 ##    && dpkg -i /usr/share/iDRACTools/*.deb \
 ##    && ln -s /opt/dell/srvadmin/bin/idracadm7 /usr/local/bin/racadm
@@ -377,6 +382,10 @@ RUN PACKER_VERSION=1.9.0-alpha \
 ###   https://docs.chef.io/inspec/install/
 ###==========
 #RUN curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec
+## ref: https://stackoverflow.com/questions/43654656/dockerfile-if-else-condition-with-external-arguments
+RUN if [ "$INSTALL_INSPEC" = "YES" ] ; then \
+      curl -fsSL https://omnitruck.chef.io/install.sh | bash -s -- -P inspec ; \
+    fi
 
 ##====================================
 ## JMETER
