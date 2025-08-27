@@ -113,11 +113,13 @@ RUN apt-get -qqy --no-install-recommends install \
 # ref: https://askubuntu.com/questions/1203898/package-openjdk-11-jdk-has-no-installation-candidate
 #========================
 #RUN add-apt-repository ppa:openjdk-r/ppa \
-RUN apt update && \
-    apt-get -qqy --no-install-recommends install \
-    default-jdk
+#RUN apt update && \
+#    apt-get -qqy --no-install-recommends install \
+#    default-jdk \
 #    default-jre
-#    openjdk-17-jdk-headless
+##    openjdk-17-jdk-headless
+#RUN apt update && \
+#    apt-get -qqy install default-jre
 
 ### ref: https://stackoverflow.com/questions/43316935/change-java-securerandom-in-dockerfile
 #RUN sed -i 's/securerandom\.source=file:\/dev\/random/securerandom\.source=file:\/dev\/urandom/' /etc/java-${JAVA_VERSION}-openjdk/security/java.security

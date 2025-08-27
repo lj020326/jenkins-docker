@@ -117,6 +117,7 @@ theme-manager:latest
 throttle-concurrents:latest
 timestamper:latest
 token-macro:latest
+uno-choice:latest
 variant:latest
 view-job-filters:latest
 warnings-ng:latest

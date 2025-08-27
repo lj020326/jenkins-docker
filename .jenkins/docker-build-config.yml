@@ -2,7 +2,6 @@
 pipeline:
   alwaysEmailList: ljohnson@dettonville.org
   runInParallel: false
-  logLevel: DEBUG
 
   buildArgs:
     IMAGE_REGISTRY: media.johnson.int:5000
