@@ -1,16 +1,20 @@
-name: Docker jenkins images build
+name: Publish Docker Image
 
 on:
+  # Allows manual triggering
+  workflow_dispatch:
   push:
     branches: ['*']
+  pull_request:
+    branches:
+      - main
   schedule:
     ## Nightly Docker Image Rebuild (1:05am daily)
     - cron: '5 1 * * *'
-#    ## Nightly Docker Image Rebuild (12am daily)
-#    - cron: '0 0 * * *'
 
 jobs:
-  docker-jenkins:
+  push_to_registry:
+    name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
 
     strategy:
@@ -33,8 +37,8 @@ jobs:
                 lj020326/docker-jenkins-jcac:latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+      - name: Check out the repo
+        uses: actions/checkout@v4
 
       - name: If the same workflow is already running from a previous commit, wait for it to finish
         uses: ahmadnassri/action-workflow-queue@v1
@@ -46,13 +50,13 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Login to DockerHub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
       - name: Build and push ${{ matrix.docker-jenkins.name }}
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.docker-jenkins.context }}
           file: ${{ matrix.docker-jenkins.dockerfile }}
@@ -65,7 +69,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Build and push ${{ matrix.docker-jenkins-jcac.name }}
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.docker-jenkins-jcac.context }}
           file: ${{ matrix.docker-jenkins-jcac.dockerfile }}

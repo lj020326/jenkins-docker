@@ -22,6 +22,7 @@ commons-lang3-api:latest
 commons-text-api:latest
 configuration-as-code-groovy:latest
 configuration-as-code:latest
+copyartifact:latest
 credentials-binding:latest
 credentials:latest
 data-tables-api:latest
@@ -68,7 +69,6 @@ material-theme:latest
 matrix-auth:latest
 matrix-project:latest
 nodelabelparameter:latest
-packer:latest
 pam-auth:latest
 parameterized-trigger:latest
 permissive-script-security:latest

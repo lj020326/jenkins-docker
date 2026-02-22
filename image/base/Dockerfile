@@ -58,10 +58,8 @@ RUN groupadd -g ${DOCKER_GID} docker && \
 RUN apt-get update -qqy && \
     apt-get -qqy install apt-utils && \
     apt-get -qqy --no-install-recommends install \
-      apt-transport-https \
       locales \
-      ca-certificates \
-      software-properties-common
+      ca-certificates
 
 ########################
 ## Set the locale
