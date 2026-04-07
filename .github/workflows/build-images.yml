@@ -3,11 +3,12 @@ name: Publish Docker Image
 on:
   # Allows manual triggering
   workflow_dispatch:
-  push:
-    branches: ['*']
   pull_request:
     branches:
       - main
+      - master
+  push:
+    branches: ['*']
   schedule:
     ## Nightly Docker Image Rebuild (1:05am daily)
     - cron: '5 1 * * *'
@@ -20,62 +21,81 @@ jobs:
     strategy:
       fail-fast: false
       ## ref: https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs
-#      max-parallel: 2
+      # run 1 build/push image at a time in sequential order
+      max-parallel: 1
       matrix:
-        include:
-          - docker-jenkins:
-              name: docker-jenkins
-              dockerfile: image/base/Dockerfile
-              context: image/base
-              tags: |-
-                lj020326/docker-jenkins:latest
-            docker-jenkins-jcac:
-              name: docker-jenkins-jcac
-              dockerfile: image/jcac/Dockerfile
-              context: image/jcac
-              tags: |-
-                lj020326/docker-jenkins-jcac:latest
+        versions:
+          - name: docker-jenkins
+            dockerfile: image/base/Dockerfile
+            context: image/base
+            tag: latest
+          - name: docker-jenkins-jcac
+            dockerfile: image/jcac/Dockerfile
+            context: image/jcac
+            tag: latest
 
     steps:
-      - name: Check out the repo
-        uses: actions/checkout@v4
-
       - name: If the same workflow is already running from a previous commit, wait for it to finish
         uses: ahmadnassri/action-workflow-queue@v1
 
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      # === DOCKER BUILD SETUP PHASE ===
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3.7.0
+        with:
+          platforms: ${{ steps.git.outputs.platforms }}
+
+      - name: Get current date
+        id: date
+        run: echo "date=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+
+      # Set a unique build ID for the current matrix version
+      - name: Set unique build ID
+        id: set-build-id
+        run: echo "BUILD_ID=build-${{ github.run_number }}" >> $GITHUB_ENV
+
+      # Determine tags dynamically based on branch
+      - name: Determine Docker tags
+        id: meta
+        run: |
+          # Extract branch name (e.g., 'v1' or 'develop-lj')
+          BRANCH_NAME=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
+          
+          # Base tags: branch name, SHA, build number, and date
+          TAGS="${{ github.repository_owner }}/${{ matrix.versions.name }}:${BRANCH_NAME}"
+          TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ matrix.versions.tag }}"
+          TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ github.sha }}"
+          TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:build-${{ github.run_number }}"
+          TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ steps.date.outputs.date }}"
+          
+          # Add 'latest' only for the master branch
+          if [[ "$BRANCH_NAME" == "master" ]]; then
+            TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:latest"
+          fi
+          
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+        uses: docker/setup-buildx-action@v3.12.0
 
-      - name: Login to DockerHub
+      - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.docker-jenkins.name }}
+      - name: Build and push ${{ github.repository_owner }}/${{ matrix.versions.name }}
         uses: docker/build-push-action@v5
         with:
-          context: ${{ matrix.docker-jenkins.context }}
-          file: ${{ matrix.docker-jenkins.dockerfile }}
-          build-args: IMAGE_REGISTRY=${{ github.repository_owner }}
+          context: ${{ matrix.versions.context }}
+          file: ${{ matrix.versions.dockerfile }}
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            BUILD_ID=${{ env.BUILD_ID }}
+            BUILD_DATE=${{ steps.date.outputs.date }}
           push: true
-          tags: ${{ matrix.docker-jenkins.tags }}
-          labels: |
-            maintainer=${{ github.repository_owner }}
-            org.opencontainers.image.vendor=${{ github.repository_owner }}
-            org.opencontainers.image.revision=${{ github.sha }}
-
-      - name: Build and push ${{ matrix.docker-jenkins-jcac.name }}
-        uses: docker/build-push-action@v5
-        with:
-          context: ${{ matrix.docker-jenkins-jcac.context }}
-          file: ${{ matrix.docker-jenkins-jcac.dockerfile }}
-          build-args: IMAGE_REGISTRY=${{ github.repository_owner }}
-          push: true
-          tags: ${{ matrix.docker-jenkins-jcac.tags }}
           labels: |
             maintainer=${{ github.repository_owner }}
             org.opencontainers.image.vendor=${{ github.repository_owner }}

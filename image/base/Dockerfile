@@ -5,6 +5,7 @@ FROM jenkins/jenkins:lts-jdk21
 #FROM jenkins/jenkins:2.414-jdk17
 
 LABEL maintainer="Lee Johnson <ljohnson@dettonville.org>"
+ARG BUILD_DATE
 ARG BUILD_ID=devel
 LABEL build=$BUILD_ID
 
