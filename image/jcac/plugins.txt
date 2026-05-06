@@ -99,6 +99,7 @@ role-strategy:latest
 saml:latest
 scm-api:latest
 scm-filter-branch-pr:latest
+scmskip:latest
 script-security:latest
 simple-theme-plugin:latest
 slack:latest

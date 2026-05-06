@@ -9,6 +9,8 @@ buildArgs:
 buildImageList:
   - buildImageName: "docker-jenkins"
     buildDir: "image/base"
+#    buildArgs:
+#      INTERNAL_IMAGE_BUILD: yes
 
   - buildImageName: "docker-jenkins-jcac"
     buildDir: "image/jcac"
