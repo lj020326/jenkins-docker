@@ -1,7 +1,15 @@
 # Stage 1: Extraction
-ARG UBUNTU_VERSION=24.04
-FROM ubuntu:${UBUNTU_VERSION} AS builder
-RUN apt-get update && apt-get install -y unzip tar
+ARG JENKINS_VERSION=lts-jdk21
+FROM jenkins/jenkins:${JENKINS_VERSION} AS builder
+
+# The jenkins/jenkins:lts base image switches to a non-root user (jenkins) by default.
+# Switch to root to perform system-level installations
+USER root
+
+#RUN apt-get update && apt-get install -y unzip tar
+RUN apt-get update -qqy && \
+    apt-get -qqy --no-install-recommends install \
+      tar zip unzip
 
 ENV YQ_VERSION=v4.53.2
 ENV YQ_BINARY=yq_linux_amd64
@@ -22,13 +30,14 @@ RUN mkdir -p /out/usr/local/bin && \
 RUN tar -xzf /tmp/govc_${GOVC_VERSION}_linux_x86_64.tar.gz -C /out/usr/local/bin/ --wildcards "*govc*"
 
 # Extract Packer
-RUN unzip /tmp/packer_${PACKER_VERSION}_linux_amd64.zip -d /out/usr/local/bin/
+RUN unzip /tmp/packer_${PACKER_VERSION}_linux_amd64.zip packer -d /out/usr/local/bin/
 
 # Ensure everything is executable
 RUN chmod +x /out/usr/local/bin/*
 
 ## ref: https://hub.docker.com/r/jenkins/jenkins
-FROM jenkins/jenkins:lts-jdk21
+ARG JENKINS_VERSION=lts-jdk21
+FROM jenkins/jenkins:${JENKINS_VERSION}
 #FROM jenkins/jenkins:lts
 #FROM jenkins/jenkins:2.414-jdk21
 #FROM jenkins/jenkins:2.414-jdk17
@@ -47,8 +56,8 @@ LABEL build=$BUILD_ID
 ## ref: https://github.com/getintodevops/jenkins-withdocker (miiro@getintodevops.com)
 ARG user=jenkins
 ARG group=jenkins
-ARG uid=1001
-#ARG gid=1001
+ARG uid=1000
+#ARG gid=1000
 ARG gid=${uid}
 ARG http_port=8080
 ARG agent_port=50000
@@ -66,20 +75,7 @@ ARG DOCKER_GID=1102
 ENV container=docker
 ENV DEBIAN_FRONTEND=noninteractive
 
-#ENV JAVA_HOME=/opt/java/openjdk
-#ENV PATH="${JAVA_HOME}/bin:${PATH}"
-ENV PATH="/root/.local/bin:${PATH}"
-
-## ref: https://github.com/pypa/pip/issues/11179#issuecomment-1152766374
-ENV PIP_ROOT_USER_ACTION=ignore
-
-# The jenkins/jenkins:lts-jdk21 base image switches to a non-root user (jenkins) by default.
-# Switch to root to perform system-level installations
 USER root
-
-## ref: https://octopus.com/blog/using-ubuntu-docker-image
-RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker
-RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
 
 # Update package lists and install necessary build tools and common dependencies.
 # These are essential for compiling some Python packages and for general test execution.
@@ -92,7 +88,7 @@ RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
 RUN apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
       apt-transport-https apt-utils ca-certificates \
-      bash tar zip unzip gnupg \
+      bash tar zip unzip xorriso \
       curl wget git git-lfs \
       locales tzdata netbase \
       tree less nano jq rsync && \
@@ -103,8 +99,9 @@ RUN apt-get update -qqy && \
 ## 2. Networking & Debugging Tools
 RUN apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
-      dnsutils iproute2 openssh-client iputils-ping inetutils-telnet \
-      ssh-askpass sshpass ssh-client \
+      dnsutils iproute2 iputils-ping inetutils-telnet \
+      openssh-client ssh-askpass sshpass \
+      gpg gpg-agent gnupg2 \
       shellcheck groff && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -140,13 +137,16 @@ ENV LC_ALL=en_US.UTF-8
 RUN groupadd -g ${DOCKER_GID} docker && \
     usermod -aG docker ${user}
 
+## ref: https://octopus.com/blog/using-ubuntu-docker-image
+RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker
+RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
+
 ## 5. Docker CLI (DinD Support)
 # Kept separate so the Docker version can be updated independently
 # --- Start Docker-in-Docker (DinD) support installation ---
 # Install Docker CLI to enable running docker commands inside this container.
 # This is crucial for scenarios like 'ansible-test units --docker' which
 # require interacting with a Docker daemon.
-# Modern Docker Repo Setup
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
