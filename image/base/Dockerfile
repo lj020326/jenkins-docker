@@ -1,4 +1,7 @@
-# Stage 1: Extraction
+#=============================================================================
+# 1. BUILDER STAGE (Decoupled Binary Ingestion)
+# ref: https://hub.docker.com/r/jenkins/jenkins
+#=============================================================================
 ARG JENKINS_VERSION=lts-jdk21
 FROM jenkins/jenkins:${JENKINS_VERSION} AS builder
 
@@ -6,24 +9,25 @@ FROM jenkins/jenkins:${JENKINS_VERSION} AS builder
 # Switch to root to perform system-level installations
 USER root
 
-#RUN apt-get update && apt-get install -y unzip tar
-RUN apt-get update -qqy && \
-    apt-get -qqy --no-install-recommends install \
-      tar zip unzip
+RUN apt-get update && apt-get install -y unzip tar curl --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV YQ_VERSION=v4.53.2
 ENV YQ_BINARY=yq_linux_amd64
 ARG GOVC_VERSION=v0.53.1
 ARG PACKER_VERSION=1.15.3
+ARG INCLUSIVITY_VERSION=0.19.0
+
+RUN mkdir -p /out/usr/local/bin
 
 # Copy all local files into the builder
 COPY files/${YQ_BINARY}_${YQ_VERSION}.tar.gz /tmp/
 COPY files/govc_${GOVC_VERSION}_linux_x86_64.tar.gz /tmp/
 COPY files/packer_${PACKER_VERSION}_linux_amd64.zip /tmp/
+COPY files/inclusivity-${INCLUSIVITY_VERSION}-linux-amd64.tar.gz /tmp/
 
 # Extract YQ
-RUN mkdir -p /out/usr/local/bin && \
-    tar -xzf /tmp/${YQ_BINARY}_${YQ_VERSION}.tar.gz -C /out/usr/local/bin/ --wildcards "*${YQ_BINARY}*" && \
+RUN tar -xzf /tmp/${YQ_BINARY}_${YQ_VERSION}.tar.gz -C /out/usr/local/bin/ --wildcards "*${YQ_BINARY}*" && \
     mv /out/usr/local/bin/${YQ_BINARY} /out/usr/local/bin/yq
 
 # Extract GOVC
@@ -32,21 +36,35 @@ RUN tar -xzf /tmp/govc_${GOVC_VERSION}_linux_x86_64.tar.gz -C /out/usr/local/bin
 # Extract Packer
 RUN unzip /tmp/packer_${PACKER_VERSION}_linux_amd64.zip packer -d /out/usr/local/bin/
 
-# Ensure everything is executable
+# Extract inclusivity
+RUN tar -xzf /tmp/inclusivity-${INCLUSIVITY_VERSION}-linux-amd64.tar.gz -C /out/usr/local/bin/ --wildcards "*inclusivity*"
+
+# Bring in external script foundations
+COPY retry_command.sh /out/usr/local/bin/retry_command.sh
 RUN chmod +x /out/usr/local/bin/*
 
-## ref: https://hub.docker.com/r/jenkins/jenkins
-ARG JENKINS_VERSION=lts-jdk21
+#=============================================================================
+# 3. CONSOLIDATED RUNTIME IMAGE
+#=============================================================================
 FROM jenkins/jenkins:${JENKINS_VERSION}
-#FROM jenkins/jenkins:lts
-#FROM jenkins/jenkins:2.414-jdk21
-#FROM jenkins/jenkins:2.414-jdk17
-
 LABEL maintainer="Lee Johnson <ljohnson@dettonville.org>"
+LABEL description="Optimized Jenkins Controller"
 
 ARG BUILD_DATE
 ARG BUILD_ID=devel
 LABEL build=$BUILD_ID
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive \
+    TZ=Etc/UTC \
+    LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8 \
+    container=docker \
+    VIRTUAL_ENV=/opt/venv
+
+# Inject performance path extensions
+ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
 # Derived from
 ## ref: https://github.com/jenkinsci/docker-agent/blob/master/17/bullseye/Dockerfile
@@ -71,11 +89,10 @@ ARG JENKINS_HOME=/var/jenkins_home
 #ARG DOCKER_GID=991
 ARG DOCKER_GID=1102
 
-## ref: https://serverfault.com/questions/618994/when-building-from-dockerfile-debian-ubuntu-package-install-debconf-noninteract
-ENV container=docker
-ENV DEBIAN_FRONTEND=noninteractive
-
 USER root
+
+# Standardize optimization configurations for APT packages
+RUN echo 'APT::Install-Suggests "0";\nAPT::Install-Recommends "0";' > /etc/apt/apt.conf.d/00-docker
 
 # Update package lists and install necessary build tools and common dependencies.
 # These are essential for compiling some Python packages and for general test execution.
@@ -91,28 +108,24 @@ RUN apt-get update -qqy && \
       bash tar zip unzip xorriso \
       curl wget git git-lfs \
       locales tzdata netbase \
-      tree less nano jq rsync && \
+      tree less nano jq rsync \
+      dnsutils iproute2 iputils-ping inetutils-telnet \
+      openssh-client ssh-askpass sshpass \
+      gpg gpg-agent gnupg2 \
+      ldap-utils \
+      shellcheck groff rlwrap && \
     sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
     locale-gen && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-## 2. Networking & Debugging Tools
-RUN apt-get update -qqy && \
-    apt-get -qqy --no-install-recommends install \
-      dnsutils iproute2 iputils-ping inetutils-telnet \
-      openssh-client ssh-askpass sshpass \
-      gpg gpg-agent gnupg2 \
-      shellcheck groff && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-## 3. Runtimes: Python
+## 2. Runtimes: Python
 # These are the heaviest layers; separating them ensures changes to one don't invalidate the other
 RUN apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
       python3 python3-pip python3-virtualenv python3-venv && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-## 4. Build Tools & Development Libraries
+## 3. Build Tools & Development Libraries
 # Essential for compiling Python C-extensions or local builds
 RUN apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
@@ -123,25 +136,12 @@ RUN apt-get update -qqy && \
       libbz2-dev uuid-dev default-mysql-client && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Generate and set the locale
-RUN sed -i 's/^# *en_US.UTF-8 UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen \
-    && locale-gen
-
-## Ensure the following are set after running `locale-gen`
-ENV LANGUAGE=en_US:en
-ENV LANG=en_US.UTF-8
-ENV LC_ALL=en_US.UTF-8
-
 # Create Docker Group with GID
 #RUN groupadd -g ${DOCKER_GID} docker
 RUN groupadd -g ${DOCKER_GID} docker && \
     usermod -aG docker ${user}
 
-## ref: https://octopus.com/blog/using-ubuntu-docker-image
-RUN echo 'APT::Install-Suggests "0";' >> /etc/apt/apt.conf.d/00-docker
-RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
-
-## 5. Docker CLI (DinD Support)
+## 4. Docker CLI (DinD Support)
 # Kept separate so the Docker version can be updated independently
 # --- Start Docker-in-Docker (DinD) support installation ---
 # Install Docker CLI to enable running docker commands inside this container.
@@ -150,20 +150,15 @@ RUN echo 'APT::Install-Recommends "0";' >> /etc/apt/apt.conf.d/00-docker
 RUN install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
-    echo \
-        "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
-        $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" | \
-        tee /etc/apt/sources.list.d/docker.list > /dev/null && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-      docker-ce-cli \
-      docker-compose-plugin \
-      docker-buildx-plugin && \
+    echo "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" > /etc/apt/sources.list.d/docker.list && \
+    \
+    apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin docker-model-plugin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 # --- End Docker-in-Docker (DinD) support installation ---
 
-# 5. External Tools: Copy in from builder stage ---
-# Copy the already-extracted binaries from the builder stage
+#=============================================================================
+# 4. RUNTIME DEPENDENCY INGESTION
+#=============================================================================
 COPY --from=builder /out/usr/local/bin/ /usr/local/bin/
 
 ############################
