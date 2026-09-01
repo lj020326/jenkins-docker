@@ -55,6 +55,7 @@ hashicorp-vault-pipeline:latest
 hashicorp-vault-plugin:latest
 hidden-parameter:latest
 htmlpublisher:latest
+http_request:latest
 jdk-tool:latest
 jjwt-api:latest
 jnr-posix-api:latest

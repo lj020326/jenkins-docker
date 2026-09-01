@@ -23,15 +23,15 @@ RUN jenkins-plugin-cli -f /usr/share/jenkins/ref/plugins.txt
 ```
 
 -   I base my Dockerfile on the latest official long time support Jenkins controller image for JDK 17.
-    
+
 -   Via Java Options I tell the controller not to run the setup wizard on startup.
-    
+
 -   Via an environment variable I tell the configuration-as-code plugin how the configuration file is named.
-    
+
 -   Then I copy this configuration file, a groovy file with job definitions and a file with the used plugins to the image.
-    
+
 -   When the container starts, the plugins will be installed.
-    
+
 
 In this referenced file I define the plugins, which I want to install:
 
@@ -103,11 +103,11 @@ volumes:
   jenkins-docker-certs:
 ```
 
-**1** The most parameters in the file come from [Jenkins documentation](https://www.jenkins.io/doc/book/installing/docker/#on-windows). 
-**2** I build the Jenkins Controller Service 
-**3** from the Dockerfile, which is found in the current directory. 
-**4** The administration user 
-**5** and password comes in my case from a local .env file, which will normally not be checked in, as it contains sensitive information. For this blog it is checked in for completeness. 
+**1** The most parameters in the file come from [Jenkins documentation](https://www.jenkins.io/doc/book/installing/docker/#on-windows).
+**2** I build the Jenkins Controller Service
+**3** from the Dockerfile, which is found in the current directory.
+**4** The administration user
+**5** and password comes in my case from a local .env file, which will normally not be checked in, as it contains sensitive information. For this blog it is checked in for completeness.
 **6** The Docker in Docker service is needed for ephemeral Docker Agent containers later and is loaded from an official Docker image.
 
 Additional to the user and password I set my development server component to [a unique name](https://docs.docker.com/compose/reference/envvars/#compose_project_name) in the [.env](https://docs.docker.com/compose/environment-variables/#the-env-file) file.
@@ -189,26 +189,26 @@ unclassified:
     url: "http://localhost:8080/"
 ```
 
-**1** For the matrix authorization plugin I add global administration rights to the admin user and global read rights to all authenticated users. 
-**2** I add a Docker cloud, which provides ephemeral containers 
-**3** from the official Jenkins agent image every time a build requests an agent 
-**4** with the label agent. 
-**5** For implementing best practices the Jenkins controller has no Executors. 
-**6** I add the admin user to the security realm. 
+**1** For the matrix authorization plugin I add global administration rights to the admin user and global read rights to all authenticated users.
+**2** I add a Docker cloud, which provides ephemeral containers
+**3** from the official Jenkins agent image every time a build requests an agent
+**4** with the label agent.
+**5** For implementing best practices the Jenkins controller has no Executors.
+**6** I add the admin user to the security realm.
 **7** Via a file I create all required jobs.
 
 Luckily I do not have to know all the configuration beforehand. Instead, I:
 
 -   start with a Dockerfile with -Djenkins.install.runSetupWizard=true
-    
+
 -   make all configuration by hand
-    
+
 -   Export the configuration via "Manage Jenkins → Configuration as Code → Download View Configuration"
-    
+
 -   add all required configuration to the casc.yaml file
-    
+
 -   test with -Djenkins.install.runSetupWizard=false
-    
+
 
 As last file I create:
 
@@ -266,4 +266,4 @@ That’s it!
 
 - https://www.amapac.io/blog/2023/vds_jenkins_with_docker_desktop_jcasc.html
 - https://github.com/amapac-io/vds_jenkins_with_docker_desktop_jcasc
-- 
+-

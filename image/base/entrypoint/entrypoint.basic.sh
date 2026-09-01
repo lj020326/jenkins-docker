@@ -3,8 +3,9 @@
 # source: https://github.com/cloudbees/java-build-tools-dockerfile/blob/master/entry_point.sh
 
 function shutdown {
-  kill -s SIGTERM $NODE_PID
-  wait $NODE_PID
+  # shellcheck disable=SC2154
+  kill -s SIGTERM "${NODE_PID}"
+  wait "${NODE_PID}"
 }
 
 trap shutdown SIGTERM SIGINT

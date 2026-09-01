@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -f ./jenkins.env ]; then
+if [[ ! -f ./jenkins.env ]]; then
   cp .env.template jenkins.env
 fi
 

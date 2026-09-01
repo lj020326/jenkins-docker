@@ -62,19 +62,19 @@ jobs:
         run: |
           # Extract branch name (e.g., 'v1' or 'develop-lj')
           BRANCH_NAME=$(echo "${{ github.ref }}" | sed -e 's,.*/\(.*\),\1,')
-          
+
           # Base tags: branch name, SHA, build number, and date
           TAGS="${{ github.repository_owner }}/${{ matrix.versions.name }}:${BRANCH_NAME}"
           TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ matrix.versions.tag }}"
           TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ github.sha }}"
           TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:build-${{ github.run_number }}"
           TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:${{ steps.date.outputs.date }}"
-          
+
           # Add 'latest' only for the master branch
           if [[ "$BRANCH_NAME" == "master" ]]; then
             TAGS="$TAGS,${{ github.repository_owner }}/${{ matrix.versions.name }}:latest"
           fi
-          
+
           echo "tags=$TAGS" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx

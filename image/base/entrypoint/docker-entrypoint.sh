@@ -11,32 +11,33 @@
 
 set -e
 
-echo "$0: Looking for shell scripts in /docker-entrypoint.d/"
+echo "${0}: Looking for shell scripts in /docker-entrypoint.d/"
 #. /docker-entrypoint.d/env_secrets_expand.sh
+# shellcheck disable=SC1091
 . /docker-entrypoint.d/.env-from-docker-secrets
 
-if /usr/bin/find "/docker-entrypoint.d/" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null | read v; then
-    echo "$0: /docker-entrypoint.d/ is not empty, will attempt to perform configuration"
+if /usr/bin/find "/docker-entrypoint.d/" -mindepth 1 -maxdepth 1 -type f -print -quit 2>/dev/null | read -r _; then
+    echo "${0}: /docker-entrypoint.d/ is not empty, will attempt to perform configuration"
 
-    echo "$0: Looking for shell scripts in /docker-entrypoint.d/"
+    echo "${0}: Looking for shell scripts in /docker-entrypoint.d/"
     find "/docker-entrypoint.d/" -follow -type f -print | sort -V | while read -r f; do
-    case "$f" in
+    case "${f}" in
         *.sh)
-            if [ -x "$f" ]; then
-                echo "$0: Launching $f";
-                "$f"
+            if [ -x "${f}" ]; then
+                echo "${0}: Launching ${f}";
+                "${f}"
             else
                 # warn on shell scripts without exec bit
-                echo "$0: Ignoring $f, not executable";
+                echo "${0}: Ignoring ${f}, not executable";
             fi
             ;;
-        *) echo "$0: Ignoring $f";;
+        *) echo "${0}: Ignoring ${f}";;
     esac
 done
 
-echo "$0: Configuration complete; ready for start up"
+echo "${0}: Configuration complete; ready for start up"
 else
-    echo "$0: No files found in /docker-entrypoint.d/, skipping configuration"
+    echo "${0}: No files found in /docker-entrypoint.d/, skipping configuration"
 fi
 
 exec "$@"

@@ -9,14 +9,14 @@
 ##   https://stackoverflow.com/questions/48094850/docker-stack-setting-environment-variable-from-secrets
 ## source: https://gist.github.com/soloman1124/cdcf8e603f3064b2b49d614c6ed45a92
 
-: ${ENV_SECRETS_DIR:=/run/secrets}
+: "${ENV_SECRETS_DIR:=/run/secrets}"
 
-beginswith() { case $2 in "$1"*) true;; *) false;; esac; }
+beginswith() { case "${2}" in "$1"*) true;; *) false;; esac; }
 
 env_secret_debug()
 {
-    if [ ! -z "$ENV_SECRETS_DEBUG" ]; then
-        echo -e "\033[1m$@\033[0m"
+    if [ -n "${ENV_SECRETS_DEBUG}" ]; then
+        printf "\033[1m%s\033[0m\n" "$*"
     fi
 }
 
@@ -28,25 +28,25 @@ env_secret_debug()
 dksec_expand() {
     for env_var in $(printenv | sort)
     do
-        value=$(echo $env_var | cut -d"=" -f2)
-        key=$(echo $env_var | cut -d"=" -f1)
-        if beginswith "dksec://" $value; then
+        value=$(echo "${env_var}" | cut -d"=" -f2)
+        key=$(echo "${env_var}" | cut -d"=" -f1)
+        if beginswith "dksec://" "${value}"; then
             secret_name=${value#"dksec://"}
             secret_file="${ENV_SECRETS_DIR}/${secret_name}"
-            env_secret_debug "Secret for $key: $secret_file"
-            if [ -f "$secret_file" ]; then
-                env_secret_debug "File found: $secret_file"
+            env_secret_debug "Secret for ${key}: ${secret_file}"
+            if [ -f "${secret_file}" ]; then
+                env_secret_debug "File found: ${secret_file}"
                 secret=$(cat "${secret_file}")
-                export "$key"="$secret"
+                export "${key}"="${secret}"
             else
-                env_secret_debug "Secret file does not exist! $secret_file"
+                env_secret_debug "Secret file does not exist! ${secret_file}"
             fi
-        elif beginswith "dkseckey://" $value; then
+        elif beginswith "dkseckey://" "${value}"; then
             secret_name=${value#"dkseckey://"}
             secret_file="${ENV_SECRETS_DIR}/${secret_name}"
-            env_secret_debug "Secret for $key: $secret_file"
-            if [ -f "$secret_file" ]; then
-                env_secret_debug "File found: $secret_file"
+            env_secret_debug "Secret for ${key}: ${secret_file}"
+            if [ -f "${secret_file}" ]; then
+                env_secret_debug "File found: ${secret_file}"
                 ## ref: https://stackoverflow.com/a/74481066
                 ## ref: https://stackoverflow.com/a/42275142
                 ## ref: https://stackoverflow.com/questions/7427262/how-to-read-a-file-into-a-variable-in-shell
@@ -54,15 +54,15 @@ dksec_expand() {
 #                export "$key"="$secret"
 #                export "$key"="\"$secret\""
                 ## ref: https://github.com/jenkinsci/configuration-as-code-plugin/tree/master/demos/credentials#example
-                export "$key"="$secret_file"
+                export "${key}"="${secret_file}"
             else
-                env_secret_debug "Secret file does not exist! $secret_file"
+                env_secret_debug "Secret file does not exist! ${secret_file}"
             fi
         fi
     done
 
-    if [ ! -z "$ENV_SECRETS_DEBUG" ]; then
-        echo -e "\n\033[1mExpanded environment variables\033[0m"
+    if [ -n "${ENV_SECRETS_DEBUG}" ]; then
+        printf "\n\033[1mExpanded environment variables\033[0m\n"
 #        printenv | sort
         export -p | sed 's/declare -x //'
     fi

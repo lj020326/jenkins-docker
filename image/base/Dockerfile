@@ -9,37 +9,27 @@ FROM jenkins/jenkins:${JENKINS_VERSION} AS builder
 # Switch to root to perform system-level installations
 USER root
 
-RUN apt-get update && apt-get install -y unzip tar curl --no-install-recommends \
-    && rm -rf /var/lib/apt/lists/*
-
 ENV YQ_VERSION=v4.53.2
 ENV YQ_BINARY=yq_linux_amd64
 ARG GOVC_VERSION=v0.53.1
 ARG PACKER_VERSION=1.15.3
 ARG INCLUSIVITY_VERSION=0.19.0
 
-RUN mkdir -p /out/usr/local/bin
+RUN apt-get update && apt-get install -y --no-install-recommends unzip tar curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /out/usr/local/bin
 
-# Copy all local files into the builder
-COPY files/${YQ_BINARY}_${YQ_VERSION}.tar.gz /tmp/
-COPY files/govc_${GOVC_VERSION}_linux_x86_64.tar.gz /tmp/
+# ADD auto-extracts local archives, saving extract layers
+ADD files/${YQ_BINARY}_${YQ_VERSION}.tar.gz /tmp/
+ADD files/govc_${GOVC_VERSION}_linux_x86_64.tar.gz /tmp/
 COPY files/packer_${PACKER_VERSION}_linux_amd64.zip /tmp/
-COPY files/inclusivity-${INCLUSIVITY_VERSION}-linux-amd64.tar.gz /tmp/
+ADD files/inclusivity-${INCLUSIVITY_VERSION}-linux-amd64.tar.gz /tmp/
 
-# Extract YQ
-RUN tar -xzf /tmp/${YQ_BINARY}_${YQ_VERSION}.tar.gz -C /out/usr/local/bin/ --wildcards "*${YQ_BINARY}*" && \
-    mv /out/usr/local/bin/${YQ_BINARY} /out/usr/local/bin/yq
+RUN mv /tmp/${YQ_BINARY} /out/usr/local/bin/yq || mv /tmp/*${YQ_BINARY}* /out/usr/local/bin/yq && \
+    mv /tmp/govc /out/usr/local/bin/govc || true && \
+    unzip /tmp/packer_${PACKER_VERSION}_linux_amd64.zip packer -d /out/usr/local/bin/ && \
+    mv /tmp/inclusivity /out/usr/local/bin/inclusivity || true
 
-# Extract GOVC
-RUN tar -xzf /tmp/govc_${GOVC_VERSION}_linux_x86_64.tar.gz -C /out/usr/local/bin/ --wildcards "*govc*"
-
-# Extract Packer
-RUN unzip /tmp/packer_${PACKER_VERSION}_linux_amd64.zip packer -d /out/usr/local/bin/
-
-# Extract inclusivity
-RUN tar -xzf /tmp/inclusivity-${INCLUSIVITY_VERSION}-linux-amd64.tar.gz -C /out/usr/local/bin/ --wildcards "*inclusivity*"
-
-# Bring in external script foundations
 COPY retry_command.sh /out/usr/local/bin/retry_command.sh
 RUN chmod +x /out/usr/local/bin/*
 
@@ -54,61 +44,42 @@ ARG BUILD_DATE
 ARG BUILD_ID=devel
 LABEL build=$BUILD_ID
 
-# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive \
     TZ=Etc/UTC \
     LANG=en_US.UTF-8 \
     LANGUAGE=en_US:en \
     LC_ALL=en_US.UTF-8 \
     container=docker \
-    VIRTUAL_ENV=/opt/venv
+    VIRTUAL_ENV=/opt/venv \
+    PIP_NO_CACHE_DIR=1
 
-# Inject performance path extensions
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-# Derived from
-## ref: https://github.com/jenkinsci/docker-agent/blob/master/17/bullseye/Dockerfile
-## ref: https://github.com/jenkinsci/docker/blob/master/Dockerfile
-## ref: https://github.com/cyrille-leclerc/java-build-tools-dockerfile
-## ref: https://github.com/dettonville/java-build-tools-dockerfile
-## ref: https://github.com/getintodevops/jenkins-withdocker (miiro@getintodevops.com)
 ARG user=jenkins
 ARG group=jenkins
 ARG uid=1000
-#ARG gid=1000
 ARG gid=${uid}
-ARG http_port=8080
-ARG agent_port=50000
-ARG JENKINS_HOME=/var/jenkins_home
-#ARG JENKINS_HOME=/home/jenkins
-
-## ref: https://stackoverflow.com/questions/59025426/docker-container-how-to-set-gid-of-socket-file-to-groupid-130
-# Used to set the docker group ID
-# Set to 497 by default, which is the groupID used by AWS Linux ECS instance
-#ARG DOCKER_GID=497
-#ARG DOCKER_GID=991
 ARG DOCKER_GID=1102
 
 USER root
 
-# Standardize optimization configurations for APT packages
-RUN echo 'APT::Install-Suggests "0";\nAPT::Install-Recommends "0";' > /etc/apt/apt.conf.d/00-docker
+# Setup Docker Group, Jenkins User, and APT Configuration
+RUN groupadd -g ${DOCKER_GID} docker && \
+    usermod -aG sudo,docker ${user} && \
+    echo 'APT::Install-Suggests "0";\nAPT::Install-Recommends "0";' > /etc/apt/apt.conf.d/00-docker
 
-# Update package lists and install necessary build tools and common dependencies.
-# These are essential for compiling some Python packages and for general test execution.
-# Add any other system-level dependencies your specific Ansible collections might require.
-# For example, if your collections interact with AWS, Azure, databases, etc., you might need:
-# apt-get install -y --no-install-recommends libssl-dev libffi-dev openssh-client
+# Switch default shell to bash so pipefail is recognized
+SHELL ["/bin/bash", "-c"]
 
-## 1. Core System Utilities & Locales
-# These rarely change and provide the base for everything else
-RUN apt-get update -qqy && \
+# Combined APT Installation Layer
+RUN set -o pipefail && \
+    apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
       apt-transport-https apt-utils ca-certificates \
       bash tar zip unzip xorriso \
-      curl wget git git-lfs \
+      curl git git-lfs \
       locales tzdata netbase \
-      tree less nano jq rsync \
+      tree less jq rsync \
       dnsutils iproute2 iputils-ping inetutils-telnet \
       openssh-client ssh-askpass sshpass \
       gpg gpg-agent gnupg2 \
@@ -130,31 +101,19 @@ RUN apt-get update -qqy && \
 RUN apt-get update -qqy && \
     apt-get -qqy --no-install-recommends install \
       build-essential patch genisoimage dirmngr openssl \
+      libxml2-dev libxslt1-dev \
       zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev \
       libpq-dev libmariadb-dev libsasl2-dev libldap2-dev \
       libssl-dev libsqlite3-dev libreadline-dev libffi-dev \
       libbz2-dev uuid-dev default-mysql-client && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Create Docker Group with GID
-#RUN groupadd -g ${DOCKER_GID} docker
-RUN groupadd -g ${DOCKER_GID} docker && \
-    usermod -aG docker ${user}
-
-## 4. Docker CLI (DinD Support)
-# Kept separate so the Docker version can be updated independently
-# --- Start Docker-in-Docker (DinD) support installation ---
-# Install Docker CLI to enable running docker commands inside this container.
-# This is crucial for scenarios like 'ansible-test units --docker' which
-# require interacting with a Docker daemon.
-RUN install -m 0755 -d /etc/apt/keyrings && \
+    sed -i '/en_US.UTF-8/s/^# //g' /etc/locale.gen && \
+    locale-gen && \
+    install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(. /etc/os-release && echo \"$VERSION_CODENAME\") stable" > /etc/apt/sources.list.d/docker.list && \
-    \
     apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin docker-buildx-plugin docker-model-plugin && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
-# --- End Docker-in-Docker (DinD) support installation ---
 
 #=============================================================================
 # 4. RUNTIME DEPENDENCY INGESTION
@@ -170,8 +129,24 @@ COPY ./entrypoint /
 RUN chmod +x /docker-entrypoint.sh
 RUN chmod +x /env_secrets_expand.sh
 
-# drop back to the regular jenkins user - good practice
-#USER jenkins
+# Configure Multiarch Contexts
+RUN for user_home in /root /home/${user}; do \
+        mkdir -p ${user_home}/.ssh && \
+        mkdir -p ${user_home}/.docker/buildx/instances && \
+        echo '{"name":"multiarch-builder","driver":"docker-container","nodes":[{"name":"multiarch-builder0","endpoint":"unix:///var/run/docker.sock","platforms":null,"flags":[],"env":null,"driver-opts":null}]}' \
+        > ${user_home}/.docker/buildx/instances/multiarch-builder && \
+        mkdir -p ${user_home}/.docker && \
+        echo '{"currentContext":"default"}' \
+        > ${user_home}/.docker/config.json && \
+        mkdir -p ${user_home}/.ansible/collections && \
+        chown -R ${user}:${user} ${user_home}/.docker ${user_home}/.ansible || true; \
+    done
+
+# Controller runs as the jenkins user (uid 1000) – this is intentional.
+# Agent images that are launched by the Docker Pipeline plugin must stay as
+# root; see the agent Dockerfile for the full explanation.
+ENV HOME=/home/${user}
+WORKDIR ${HOME}
 USER ${user}
 
 ## Second argument is original entrypoint in image

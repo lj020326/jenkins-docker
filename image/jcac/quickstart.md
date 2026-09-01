@@ -20,7 +20,7 @@ Caution: After the last plugin an empty line is needed, otherwise the last plugi
 
 
 1. Environment variable configuration
-   
+
    ```shell
    cp .env.template jenkins.env
    # adjust jenkins.env according to your needs
@@ -29,7 +29,7 @@ Caution: After the last plugin an empty line is needed, otherwise the last plugi
 1. Run container
 
     - with docker
-      
+
           `docker run --name jenkins --rm -p 8080:8080 -v$(pwd)/jenkins_casc.yml:/var/jenkins_casc.yml  --env-file=jenkins.env lj020326/docker-jenkins-jcac:latest`
 
     - with docker-compose

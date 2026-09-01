@@ -244,7 +244,7 @@ unclassified:
 ...
 ```
 
-The local security realm means to use basic authentication where users must specify their ID/username and password.  
+The local security realm means to use basic authentication where users must specify their ID/username and password.
 Further the allowsSignup: false, prevents anonymous users from creating an account through the web interface.
 
 Next, build a new image to incorporate the changes made to the jenkins_casc.yml file:
@@ -408,7 +408,7 @@ $ docker run --name jenkins --rm -p 8080:8080 --env JENKINS_ADMIN_ID=admin --env
 
 ## **Conclusion**
 
-In short, Jenkins Configuration as Code (JCasC) method can help us to automate the setup of Jenkins using Docker. 
+In short, Jenkins Configuration as Code (JCasC) method can help us to automate the setup of Jenkins using Docker.
 
 ## Reference
 
@@ -419,5 +419,3 @@ In short, Jenkins Configuration as Code (JCasC) method can help us to automate t
 * https://github.com/EMnify/jenkins-casc-docker
 * https://github.com/emnify/jenkins-casc-docker/blob/master/Dockerfile
 * https://github.com/emnify/jenkins-casc-docker/blob/master/plugins.txt
-
-
