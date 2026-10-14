@@ -2,7 +2,7 @@
 # 1. BUILDER STAGE (Decoupled Binary Ingestion)
 # ref: https://hub.docker.com/r/jenkins/jenkins
 #=============================================================================
-ARG JENKINS_VERSION=lts-jdk21
+ARG JENKINS_VERSION=lts-jdk25
 FROM jenkins/jenkins:${JENKINS_VERSION} AS builder
 
 # The jenkins/jenkins:lts base image switches to a non-root user (jenkins) by default.
